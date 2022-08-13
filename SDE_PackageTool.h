@@ -32,7 +32,7 @@ namespace SDE_PackageTool
 	struct LuaEnumReg
 	{
 		const char* name;
-		long long	value;
+		long long value;
 	};
 
 	class LuaEnumRegList
@@ -155,6 +155,34 @@ namespace SDE_PackageTool
 		~LuaPackage();
 	};
 
+	class LuaPackageManager
+	{
+	public:
+		// Push a package into manager and return the index of the package.
+		size_t Push(const LuaPackage& package);
+
+		// Get the size of the package list.
+		size_t GetSize() const;
+
+		// Foreach all package in the list and call the function for them.
+		void Foreach(std::function<void(const LuaPackage&)> funcCalled) const;
+
+	private:
+		class Impl;
+		Impl* m_pImpl;
+
+	public:
+		~LuaPackageManager();
+		LuaPackageManager(const LuaPackageManager&) = delete;
+		LuaPackageManager& operator=(const LuaPackageManager&) = delete;
+		static LuaPackageManager& Instance() {
+			static LuaPackageManager instance;
+			return instance;
+		}
+	private:
+		LuaPackageManager();
+	};
+
 	// Set all enum in the list into the table on the top of the stack.
 	void SetLuaEnumList(lua_State* pState, const LuaEnumRegList& listEnumReg);
 
@@ -164,7 +192,7 @@ namespace SDE_PackageTool
 	// Register the metatable into the registry of the state.
 	void RegisterLuaMetatable(lua_State* pState, const LuaMetatableReg& regMetatable);
 
-	// Set package's data into the table on the top of the stack.
+	// Register the package's metatable and set the package's data into the table on the top of the stack.
 	void SetLuaPackage(lua_State* pState, const LuaPackage& package);
 }
 

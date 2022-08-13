@@ -176,6 +176,42 @@ SDE_PackageTool::LuaPackage::~LuaPackage()
 	delete m_pImpl;
 }
 
+class SDE_PackageTool::LuaPackageManager::Impl
+{
+public:
+	std::list<SDE_PackageTool::LuaPackage> m_listPackage;
+};
+
+size_t SDE_PackageTool::LuaPackageManager::Push(const LuaPackage& package)
+{
+	m_pImpl->m_listPackage.push_back(package);
+	return m_pImpl->m_listPackage.size() - 1;
+}
+
+size_t SDE_PackageTool::LuaPackageManager::GetSize() const
+{
+	return m_pImpl->m_listPackage.size();
+}
+
+void SDE_PackageTool::LuaPackageManager::Foreach(std::function<void(const LuaPackage&)> funcCalled) const
+{
+	for (std::list<SDE_PackageTool::LuaPackage>::iterator iter = m_pImpl->m_listPackage.begin();
+		iter != m_pImpl->m_listPackage.end(); iter++)
+	{
+		funcCalled(*iter);
+	}
+}
+
+SDE_PackageTool::LuaPackageManager::LuaPackageManager()
+{
+	m_pImpl = new Impl();
+}
+
+SDE_PackageTool::LuaPackageManager::~LuaPackageManager()
+{
+	delete m_pImpl;
+}
+
 void SDE_PackageTool::SetLuaEnumList(lua_State* pState, const LuaEnumRegList& listEnumReg)
 {
 	if (lua_type(pState, -1) != LUA_TTABLE)
