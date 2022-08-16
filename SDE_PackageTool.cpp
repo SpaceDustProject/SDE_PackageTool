@@ -27,9 +27,20 @@ void SDE_PackageTool::LuaEnumRegList::Foreach(std::function<void(const SDE_Packa
 	}
 }
 
+SDE_PackageTool::LuaEnumRegList& SDE_PackageTool::LuaEnumRegList::operator=(const LuaEnumRegList& listEnumReg)
+{
+	if (m_pImpl) delete m_pImpl;
+	m_pImpl = new Impl(*listEnumReg.m_pImpl);
+}
+
 SDE_PackageTool::LuaEnumRegList::LuaEnumRegList(const std::initializer_list<LuaEnumReg>& ilLuaEnumReg)
 {
 	m_pImpl = new Impl(ilLuaEnumReg);
+}
+
+SDE_PackageTool::LuaEnumRegList::LuaEnumRegList(const LuaEnumRegList& listEnumReg)
+{
+	m_pImpl = new Impl(*listEnumReg.m_pImpl);
 }
 
 SDE_PackageTool::LuaEnumRegList::~LuaEnumRegList()
@@ -61,9 +72,20 @@ void SDE_PackageTool::LuaFuncRegList::Foreach(std::function<void(const SDE_Packa
 	}
 }
 
+SDE_PackageTool::LuaFuncRegList& SDE_PackageTool::LuaFuncRegList::operator=(const LuaFuncRegList& listFuncReg)
+{
+	if (m_pImpl) delete m_pImpl;
+	m_pImpl = new Impl(*listFuncReg.m_pImpl);
+}
+
 SDE_PackageTool::LuaFuncRegList::LuaFuncRegList(const std::initializer_list<LuaFuncReg>& ilLuaFuncReg)
 {
 	m_pImpl = new Impl(ilLuaFuncReg);
+}
+
+SDE_PackageTool::LuaFuncRegList::LuaFuncRegList(const LuaFuncRegList& listFuncReg)
+{
+	m_pImpl = new Impl(*listFuncReg.m_pImpl);
 }
 
 SDE_PackageTool::LuaFuncRegList::~LuaFuncRegList()
@@ -95,9 +117,20 @@ void SDE_PackageTool::LuaMetatableRegList::Foreach(std::function<void(const LuaM
 	}
 }
 
+SDE_PackageTool::LuaMetatableRegList& SDE_PackageTool::LuaMetatableRegList::operator=(const LuaMetatableRegList& listMetatableReg)
+{
+	if (m_pImpl) delete m_pImpl;
+	m_pImpl = new Impl(*listMetatableReg.m_pImpl);
+}
+
 SDE_PackageTool::LuaMetatableRegList::LuaMetatableRegList(const std::initializer_list<LuaMetatableReg>& ilMetatableReg)
 {
 	m_pImpl = new Impl(ilMetatableReg);
+}
+
+SDE_PackageTool::LuaMetatableRegList::LuaMetatableRegList(const LuaMetatableRegList& listMetatableReg)
+{
+	m_pImpl = new Impl(*listMetatableReg.m_pImpl);
 }
 
 SDE_PackageTool::LuaMetatableRegList::~LuaMetatableRegList()
@@ -110,40 +143,26 @@ class SDE_PackageTool::LuaPackage::Impl
 public:
 	std::string				m_strName;
 	LuaFuncRegList			m_listFuncReg;
-	LuaEnumRegList			m_listEnumReg;
-	LuaMetatableRegList		m_listMetatableReg;
-	std::function<void()>	m_funcInit;
+	LuaPackageInitializer	m_funcInit;
 	LuaFunc					m_funcQuit;
 
 public:
 	Impl(
 		const std::string& strName,
-		const LuaFuncRegList& listFuncReg,
-		const LuaEnumRegList& listEnumReg,
-		const LuaMetatableRegList& listMetatableReg,
-		std::function<void()> funcInit,
+		const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
+		LuaPackageInitializer funcInit,
 		LuaFunc funcQuit
-	) : 
+	) :
 		m_strName(strName),
-		m_listFuncReg(listFuncReg), m_listEnumReg(listEnumReg), m_listMetatableReg(listMetatableReg),
-		m_funcInit(funcInit), m_funcQuit(funcQuit) {}
+		m_listFuncReg(ilLuaFuncReg),
+		m_funcInit(funcInit),
+		m_funcQuit(funcQuit)
+	{}
 };
 
-SDE_PackageTool::LuaPackage::LuaPackage(
-	const std::string& strName,
-	const LuaFuncRegList& listFuncReg,
-	const LuaEnumRegList& listEnumReg,
-	const LuaMetatableRegList& listMetatable,
-	std::function<void()> funcInit,
-	LuaFunc funcQuit
-)
+void SDE_PackageTool::LuaPackage::Initialize(lua_State* pState) const
 {
-	m_pImpl = new Impl(strName, listFuncReg, listEnumReg, listMetatable, funcInit, funcQuit);
-}
-
-void SDE_PackageTool::LuaPackage::Initialize() const
-{
-	m_pImpl->m_funcInit();
+	m_pImpl->m_funcInit(pState);
 }
 
 const std::string& SDE_PackageTool::LuaPackage::GetName() const
@@ -156,19 +175,30 @@ const SDE_PackageTool::LuaFuncRegList& SDE_PackageTool::LuaPackage::GetFuncRegLi
 	return m_pImpl->m_listFuncReg;
 }
 
-const SDE_PackageTool::LuaEnumRegList& SDE_PackageTool::LuaPackage::GetEnumRegList() const
-{
-	return m_pImpl->m_listEnumReg;
-}
-
-const SDE_PackageTool::LuaMetatableRegList& SDE_PackageTool::LuaPackage::GetMetatableRegList() const
-{
-	return m_pImpl->m_listMetatableReg;
-}
-
 SDE_PackageTool::LuaFunc SDE_PackageTool::LuaPackage::GetQuitFunc() const
 {
 	return m_pImpl->m_funcQuit;
+}
+
+SDE_PackageTool::LuaPackage& SDE_PackageTool::LuaPackage::operator=(const LuaPackage& package)
+{
+	if (m_pImpl) delete m_pImpl;
+	m_pImpl = new Impl(*package.m_pImpl);
+}
+
+SDE_PackageTool::LuaPackage::LuaPackage(
+	const std::string& strName,
+	const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
+	LuaPackageInitializer funcInit,
+	LuaFunc funcQuit
+)
+{
+	m_pImpl = new Impl(strName, ilLuaFuncReg, funcInit, funcQuit);
+}
+
+SDE_PackageTool::LuaPackage::LuaPackage(const LuaPackage& package)
+{
+	m_pImpl = new Impl(*package.m_pImpl);
 }
 
 SDE_PackageTool::LuaPackage::~LuaPackage()
@@ -182,7 +212,7 @@ public:
 	std::list<SDE_PackageTool::LuaPackage> m_listPackage;
 };
 
-size_t SDE_PackageTool::LuaPackageManager::Push(const LuaPackage& package)
+size_t SDE_PackageTool::LuaPackageManager::Add(const LuaPackage& package)
 {
 	m_pImpl->m_listPackage.push_back(package);
 	return m_pImpl->m_listPackage.size() - 1;
@@ -270,14 +300,13 @@ void SDE_PackageTool::SetLuaPackage(lua_State* pState, const LuaPackage& package
 	}
 
 	// Call the package's initialization function.
-	package.Initialize();
+	package.Initialize(pState);
 
 	// Create a table containing package functions and enumeration values.
 	lua_pushstring(pState, package.GetName().c_str());
-	lua_createtable(pState, 0, package.GetFuncRegList().GetSize() + package.GetEnumRegList().GetSize());
+	lua_createtable(pState, 0, package.GetFuncRegList().GetSize());
 	{
 		SetLuaFuncList(pState, package.GetFuncRegList());
-		SetLuaEnumList(pState, package.GetEnumRegList());
 
 		// Set the quit function for the package.
 		lua_newtable(pState);
@@ -289,12 +318,4 @@ void SDE_PackageTool::SetLuaPackage(lua_State* pState, const LuaPackage& package
 		lua_setmetatable(pState, -2);
 	}
 	lua_rawset(pState, -3);
-
-	// Register all metatables in the package.
-	package.GetMetatableRegList().Foreach(
-		[&pState](const SDE_PackageTool::LuaMetatableReg& regMetatable)
-		{
-			RegisterLuaMetatable(pState, regMetatable);
-		}
-	);
 }

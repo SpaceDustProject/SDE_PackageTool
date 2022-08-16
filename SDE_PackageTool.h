@@ -28,6 +28,7 @@ namespace SDE_PackageTool
 {
 	typedef lua_CFunction	LuaFunc;
 	typedef luaL_Reg		LuaFuncReg;
+	typedef void (*LuaPackageInitializer)(lua_State*);
 
 	struct LuaEnumReg
 	{
@@ -44,12 +45,15 @@ namespace SDE_PackageTool
 		// Foreach all enum in the list and call the function for them.
 		void Foreach(std::function<void(const LuaEnumReg&)> funcCalled) const;
 
+		LuaEnumRegList& operator=(const LuaEnumRegList& listEnumReg);
+
 	private:
 		class Impl;
 		Impl* m_pImpl;
 
 	public:
 		LuaEnumRegList(const std::initializer_list<LuaEnumReg>& ilLuaEnumReg);
+		LuaEnumRegList(const LuaEnumRegList& listEnumReg);
 		~LuaEnumRegList();
 	};
 
@@ -62,12 +66,15 @@ namespace SDE_PackageTool
 		// Foreach all func in the list and call the function for them.
 		void Foreach(std::function<void(const LuaFuncReg&)> funcCalled) const;
 
+		LuaFuncRegList& operator=(const LuaFuncRegList& listFuncReg);
+
 	private:
 		class Impl;
 		Impl* m_pImpl;
 
 	public:
 		LuaFuncRegList(const std::initializer_list<LuaFuncReg>& ilLuaFuncReg);
+		LuaFuncRegList(const LuaFuncRegList& listFuncReg);
 		~LuaFuncRegList();
 	};
 
@@ -94,10 +101,10 @@ namespace SDE_PackageTool
 	public:
 		LuaMetatableReg(
 			const std::string& strName,
-			const LuaFuncRegList& listFuncReg,
+			const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
 			lua_CFunction funcGC = [](lua_State*)->int {}
 		) :
-			m_strName(strName), m_listFuncReg(listFuncReg), m_funcGC(funcGC) {}
+			m_strName(strName), m_listFuncReg(ilLuaFuncReg), m_funcGC(funcGC) {}
 	};
 
 	class LuaMetatableRegList
@@ -109,12 +116,15 @@ namespace SDE_PackageTool
 		// Foreach all metatable in the list and call the function for them.
 		void Foreach(std::function<void(const LuaMetatableReg&)> funcCalled) const;
 
+		LuaMetatableRegList& operator=(const LuaMetatableRegList& listMetatableReg);
+
 	private:
 		class Impl;
 		Impl* m_pImpl;
 
 	public:
 		LuaMetatableRegList(const std::initializer_list<LuaMetatableReg>& ilMetatableReg);
+		LuaMetatableRegList(const LuaMetatableRegList& listMetatableReg);
 		~LuaMetatableRegList();
 	};
 
@@ -122,7 +132,7 @@ namespace SDE_PackageTool
 	{
 	public:
 		// Call the initialization function.
-		void Initialize() const;
+		void Initialize(lua_State* pState) const;
 
 		// Get the name of the package.
 		const std::string& GetName() const;
@@ -130,14 +140,10 @@ namespace SDE_PackageTool
 		// Get the func list of the package.
 		const LuaFuncRegList& GetFuncRegList() const;
 
-		// Get the enum list of the package.
-		const LuaEnumRegList& GetEnumRegList() const;
-
-		// Get the metatable list of the package.
-		const LuaMetatableRegList& GetMetatableRegList() const;
-
 		// Get the quit function of the package.
 		LuaFunc GetQuitFunc() const;
+
+		LuaPackage& operator=(const LuaPackage& package);
 
 	private:
 		class Impl;
@@ -146,20 +152,20 @@ namespace SDE_PackageTool
 	public:
 		LuaPackage(
 			const std::string& strName,
-			const LuaFuncRegList& listFuncReg,
-			const LuaEnumRegList& listEnumReg,
-			const LuaMetatableRegList& listMetatable,
-			std::function<void()> funcInit = []()->void {},
+			const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
+			LuaPackageInitializer funcInit = [](lua_State*)->void {},
 			LuaFunc funcQuit = [](lua_State*)->int {}
 		);
+		LuaPackage(const LuaPackage& package);
+
 		~LuaPackage();
 	};
 
 	class LuaPackageManager
 	{
 	public:
-		// Push a package into manager and return the index of the package.
-		size_t Push(const LuaPackage& package);
+		// Add a package into manager and return the index of the package.
+		size_t Add(const LuaPackage& package);
 
 		// Get the size of the package list.
 		size_t GetSize() const;
