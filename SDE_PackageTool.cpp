@@ -18,7 +18,7 @@ size_t SDE_PackageTool::LuaEnumRegList::GetSize() const
 	return m_pImpl->m_listLuaEnumReg.size();
 }
 
-void SDE_PackageTool::LuaEnumRegList::Foreach(std::function<void(const SDE_PackageTool::LuaEnumReg&)> funcCalled) const
+void SDE_PackageTool::LuaEnumRegList::Traverse(std::function<void(const SDE_PackageTool::LuaEnumReg&)> funcCalled) const
 {
 	for (std::list<LuaEnumReg>::iterator iter = m_pImpl->m_listLuaEnumReg.begin();
 		iter != m_pImpl->m_listLuaEnumReg.end(); iter++)
@@ -63,7 +63,7 @@ size_t SDE_PackageTool::LuaFuncRegList::GetSize() const
 	return m_pImpl->m_listLuaFuncReg.size();
 }
 
-void SDE_PackageTool::LuaFuncRegList::Foreach(std::function<void(const SDE_PackageTool::LuaFuncReg&)> funcCalled) const
+void SDE_PackageTool::LuaFuncRegList::Traverse(std::function<void(const SDE_PackageTool::LuaFuncReg&)> funcCalled) const
 {
 	for (std::list<LuaFuncReg>::iterator iter = m_pImpl->m_listLuaFuncReg.begin();
 		iter != m_pImpl->m_listLuaFuncReg.end(); iter++)
@@ -108,7 +108,7 @@ size_t SDE_PackageTool::LuaMetatableRegList::GetSize() const
 	return m_pImpl->m_listMetatableReg.size();
 }
 
-void SDE_PackageTool::LuaMetatableRegList::Foreach(std::function<void(const LuaMetatableReg&)> funcCalled) const
+void SDE_PackageTool::LuaMetatableRegList::Traverse(std::function<void(const LuaMetatableReg&)> funcCalled) const
 {
 	for (std::list<LuaMetatableReg>::iterator iter = m_pImpl->m_listMetatableReg.begin();
 		iter != m_pImpl->m_listMetatableReg.end(); iter++)
@@ -143,6 +143,8 @@ class SDE_PackageTool::LuaPackage::Impl
 public:
 	std::string				m_strName;
 	LuaFuncRegList			m_listFuncReg;
+	LuaEnumRegList			m_listEnumReg;
+	LuaMetatableRegList		m_listMetatableReg;
 	LuaPackageInitializer	m_funcInit;
 	LuaFunc					m_funcQuit;
 
@@ -150,11 +152,15 @@ public:
 	Impl(
 		const std::string& strName,
 		const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
+		const std::initializer_list<LuaEnumReg>& ilLuaEnumReg,
+		const std::initializer_list<LuaMetatableReg>& ilLuaMetatableReg,
 		LuaPackageInitializer funcInit,
 		LuaFunc funcQuit
 	) :
 		m_strName(strName),
 		m_listFuncReg(ilLuaFuncReg),
+		m_listEnumReg(ilLuaEnumReg),
+		m_listMetatableReg(ilLuaMetatableReg),
 		m_funcInit(funcInit),
 		m_funcQuit(funcQuit)
 	{}
@@ -189,11 +195,13 @@ SDE_PackageTool::LuaPackage& SDE_PackageTool::LuaPackage::operator=(const LuaPac
 SDE_PackageTool::LuaPackage::LuaPackage(
 	const std::string& strName,
 	const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
+	const std::initializer_list<LuaEnumReg>& ilLuaEnumReg,
+	const std::initializer_list<LuaMetatableReg>& ilLuaMetatableReg,
 	LuaPackageInitializer funcInit,
 	LuaFunc funcQuit
 )
 {
-	m_pImpl = new Impl(strName, ilLuaFuncReg, funcInit, funcQuit);
+	m_pImpl = new Impl(strName, ilLuaFuncReg, ilLuaEnumReg, ilLuaMetatableReg, funcInit, funcQuit);
 }
 
 SDE_PackageTool::LuaPackage::LuaPackage(const LuaPackage& package)
@@ -223,7 +231,7 @@ size_t SDE_PackageTool::LuaPackageManager::GetSize() const
 	return m_pImpl->m_listPackage.size();
 }
 
-void SDE_PackageTool::LuaPackageManager::Foreach(std::function<void(const LuaPackage&)> funcCalled) const
+void SDE_PackageTool::LuaPackageManager::Traverse(std::function<void(const LuaPackage&)> funcCalled) const
 {
 	for (std::list<SDE_PackageTool::LuaPackage>::iterator iter = m_pImpl->m_listPackage.begin();
 		iter != m_pImpl->m_listPackage.end(); iter++)
@@ -249,7 +257,7 @@ void SDE_PackageTool::SetLuaEnumList(lua_State* pState, const LuaEnumRegList& li
 		luaL_error(pState, "The object on the top of the stack isn't table.");
 	}
 
-	listEnumReg.Foreach(
+	listEnumReg.Traverse(
 		[&pState](const LuaEnumReg& regEnum)
 		{
 			lua_pushstring(pState, regEnum.name);
@@ -266,7 +274,7 @@ void SDE_PackageTool::SetLuaFuncList(lua_State* pState, const LuaFuncRegList& li
 		luaL_error(pState, "The object on the top of the stack isn't table.");
 	}
 
-	listFuncReg.Foreach(
+	listFuncReg.Traverse(
 		[&pState](const LuaFuncReg& regEnum)
 		{
 			lua_pushstring(pState, regEnum.name);
@@ -318,4 +326,36 @@ void SDE_PackageTool::SetLuaPackage(lua_State* pState, const LuaPackage& package
 		lua_setmetatable(pState, -2);
 	}
 	lua_rawset(pState, -3);
+}
+
+void SDE_PackageTool::TraverseTable(lua_State* pState, int nIndex, std::function<bool()> funcCalled)
+{
+	if (!lua_istable(pState, -1))
+	{
+		luaL_error(pState, "The object on the top of the stack isn't table.");
+	}
+	
+	bool bContinue = true;
+	lua_pushnil(pState);
+	while (bContinue && lua_next(pState, nIndex))
+	{
+		bContinue = funcCalled();
+		if (bContinue) {
+			lua_pop(pState, 1);
+		}
+		else lua_pop(pState, 2);
+	}
+}
+
+void* SDE_PackageTool::NewUserdata(lua_State* pState, size_t nSize, const std::string& strMetatableName)
+{
+	void* pUserdata = lua_newuserdata(pState, nSize);
+	luaL_setmetatable(pState, strMetatableName.c_str());
+	return pUserdata;
+}
+
+void* SDE_PackageTool::ToUserdata(lua_State* pState, int nIndex, const std::string& strMetatableName)
+{
+	void* pUserdata = luaL_checkudata(pState, nIndex, strMetatableName.c_str());
+	return pUserdata;
 }

@@ -42,8 +42,8 @@ namespace SDE_PackageTool
 		// Get the size of the enum list.
 		size_t GetSize() const;
 
-		// Foreach all enum in the list and call the function for them.
-		void Foreach(std::function<void(const LuaEnumReg&)> funcCalled) const;
+		// Traverse all enum in the list and call the function for them.
+		void Traverse(std::function<void(const LuaEnumReg&)> funcCalled) const;
 
 		LuaEnumRegList& operator=(const LuaEnumRegList& listEnumReg);
 
@@ -63,8 +63,8 @@ namespace SDE_PackageTool
 		// Get the size of the func list.
 		size_t GetSize() const;
 
-		// Foreach all func in the list and call the function for them.
-		void Foreach(std::function<void(const LuaFuncReg&)> funcCalled) const;
+		// Traverse all func in the list and call the function for them.
+		void Traverse(std::function<void(const LuaFuncReg&)> funcCalled) const;
 
 		LuaFuncRegList& operator=(const LuaFuncRegList& listFuncReg);
 
@@ -113,8 +113,8 @@ namespace SDE_PackageTool
 		// Get the size of the metatable list.
 		size_t GetSize() const;
 
-		// Foreach all metatable in the list and call the function for them.
-		void Foreach(std::function<void(const LuaMetatableReg&)> funcCalled) const;
+		// Traverse all metatable in the list and call the function for them.
+		void Traverse(std::function<void(const LuaMetatableReg&)> funcCalled) const;
 
 		LuaMetatableRegList& operator=(const LuaMetatableRegList& listMetatableReg);
 
@@ -153,6 +153,8 @@ namespace SDE_PackageTool
 		LuaPackage(
 			const std::string& strName,
 			const std::initializer_list<LuaFuncReg>& ilLuaFuncReg,
+			const std::initializer_list<LuaEnumReg>& ilLuaEnumReg,
+			const std::initializer_list<LuaMetatableReg>& ilLuaMetatableReg,
 			LuaPackageInitializer funcInit = [](lua_State*)->void {},
 			LuaFunc funcQuit = [](lua_State*)->int {}
 		);
@@ -170,8 +172,8 @@ namespace SDE_PackageTool
 		// Get the size of the package list.
 		size_t GetSize() const;
 
-		// Foreach all package in the list and call the function for them.
-		void Foreach(std::function<void(const LuaPackage&)> funcCalled) const;
+		// Traverse all package in the list and call the function for them.
+		void Traverse(std::function<void(const LuaPackage&)> funcCalled) const;
 
 	private:
 		class Impl;
@@ -200,6 +202,15 @@ namespace SDE_PackageTool
 
 	// Register the package's metatable and set the package's data into the table on the top of the stack.
 	void SetLuaPackage(lua_State* pState, const LuaPackage& package);
+
+	// Traverse a table and call the function for its elements.
+	void TraverseTable(lua_State* pState, int nIndex, std::function<bool()> funcCalled);
+
+	// Create a userdata on the top of the stack and set a metatable for it.
+	void* NewUserdata(lua_State* pState, size_t nSize, const std::string& strMetatableName);
+
+	// Get userdata on the specified index and check its metatable.
+	void* ToUserdata(lua_State* pState, int nIndex, const std::string& strMetatableName);
 }
 
 #endif // !_SDE_PACKAGE_TOOL_H_
