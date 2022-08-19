@@ -2,6 +2,7 @@
 
 #include <new>
 #include <list>
+#include <unordered_map>
 
 class SDE_PackageTool::LuaEnumRegList::Impl
 {
@@ -176,9 +177,24 @@ const std::string& SDE_PackageTool::LuaPackage::GetName() const
 	return m_pImpl->m_strName;
 }
 
+size_t SDE_PackageTool::LuaPackage::GetSize() const
+{
+	return m_pImpl->m_listFuncReg.GetSize() + m_pImpl->m_listEnumReg.GetSize();
+}
+
 const SDE_PackageTool::LuaFuncRegList& SDE_PackageTool::LuaPackage::GetFuncRegList() const
 {
 	return m_pImpl->m_listFuncReg;
+}
+
+const SDE_PackageTool::LuaEnumRegList& SDE_PackageTool::LuaPackage::GetEnumRegList() const
+{
+	return m_pImpl->m_listEnumReg;
+}
+
+const SDE_PackageTool::LuaMetatableRegList& SDE_PackageTool::LuaPackage::GetMetatableRegList() const
+{
+	return m_pImpl->m_listMetatableReg;
 }
 
 SDE_PackageTool::LuaFunc SDE_PackageTool::LuaPackage::GetQuitFunc() const
@@ -217,26 +233,35 @@ SDE_PackageTool::LuaPackage::~LuaPackage()
 class SDE_PackageTool::LuaPackageManager::Impl
 {
 public:
-	std::list<SDE_PackageTool::LuaPackage> m_listPackage;
+	std::unordered_map<std::string, SDE_PackageTool::LuaPackage> m_mapPackage;
 };
 
 size_t SDE_PackageTool::LuaPackageManager::Add(const LuaPackage& package)
 {
-	m_pImpl->m_listPackage.push_back(package);
-	return m_pImpl->m_listPackage.size() - 1;
+	m_pImpl->m_mapPackage[package.GetName()] = package;
+	return m_pImpl->m_mapPackage.size() - 1;
 }
 
 size_t SDE_PackageTool::LuaPackageManager::GetSize() const
 {
-	return m_pImpl->m_listPackage.size();
+	return m_pImpl->m_mapPackage.size();
+}
+
+const SDE_PackageTool::LuaPackage& SDE_PackageTool::LuaPackageManager::GetPackage(const std::string& strName) const
+{
+	if (m_pImpl->m_mapPackage.find(strName) == m_pImpl->m_mapPackage.end())
+	{
+		abort();
+	}
+	return m_pImpl->m_mapPackage[strName];
 }
 
 void SDE_PackageTool::LuaPackageManager::Traverse(std::function<void(const LuaPackage&)> funcCalled) const
 {
-	for (std::list<SDE_PackageTool::LuaPackage>::iterator iter = m_pImpl->m_listPackage.begin();
-		iter != m_pImpl->m_listPackage.end(); iter++)
+	for (std::unordered_map<std::string, SDE_PackageTool::LuaPackage>::iterator iter = m_pImpl->m_mapPackage.begin();
+		iter != m_pImpl->m_mapPackage.end(); iter++)
 	{
-		funcCalled(*iter);
+		funcCalled((*iter).second);
 	}
 }
 
@@ -254,7 +279,7 @@ void SDE_PackageTool::SetLuaEnumList(lua_State* pState, const LuaEnumRegList& li
 {
 	if (lua_type(pState, -1) != LUA_TTABLE)
 	{
-		luaL_error(pState, "The object on the top of the stack isn't table.");
+		luaL_error(pState, "Error occered when try to set a lua's enum list: The object on the top of the stack isn't table.");
 	}
 
 	listEnumReg.Traverse(
@@ -271,7 +296,7 @@ void SDE_PackageTool::SetLuaFuncList(lua_State* pState, const LuaFuncRegList& li
 {
 	if (lua_type(pState, -1) != LUA_TTABLE)
 	{
-		luaL_error(pState, "The object on the top of the stack isn't table.");
+		luaL_error(pState, "Error occered when try to set a lua's function list: The object on the top of the stack isn't table.");
 	}
 
 	listFuncReg.Traverse(
@@ -304,35 +329,43 @@ void SDE_PackageTool::SetLuaPackage(lua_State* pState, const LuaPackage& package
 {
 	if (lua_type(pState, -1) != LUA_TTABLE)
 	{
-		luaL_error(pState, "The object on the top of the stack isn't table.");
+		luaL_error(pState, "Error occered when try to set a lua's package: The object on the top of the stack isn't table.");
 	}
 
 	// Call the package's initialization function.
 	package.Initialize(pState);
 
-	// Create a table containing package functions and enumeration values.
-	lua_pushstring(pState, package.GetName().c_str());
-	lua_createtable(pState, 0, package.GetFuncRegList().GetSize());
-	{
-		SetLuaFuncList(pState, package.GetFuncRegList());
+	// Set all functions and enumeration to the package on the top of the stack.
+	SetLuaFuncList(pState, package.GetFuncRegList());
+	SetLuaEnumList(pState, package.GetEnumRegList());
 
-		// Set the quit function for the package.
-		lua_newtable(pState);
+	// Register all metatable into the registry.
+	package.GetMetatableRegList().Traverse(
+		[&pState](const SDE_PackageTool::LuaMetatableReg& regMetatable)
 		{
-			lua_pushstring(pState, "__gc");
-			lua_pushcfunction(pState, package.GetQuitFunc());
-			lua_rawset(pState, -3);
+			RegisterLuaMetatable(pState, regMetatable);
 		}
-		lua_setmetatable(pState, -2);
+	);
+
+	// Set a metatable for the table on the top of the stack.
+	lua_newtable(pState);
+	{
+		lua_pushstring(pState, "__name");
+		lua_pushstring(pState, package.GetName().c_str());
+		lua_rawset(pState, -3);
+
+		lua_pushstring(pState, "__gc");
+		lua_pushcfunction(pState, package.GetQuitFunc());
+		lua_rawset(pState, -3);
 	}
-	lua_rawset(pState, -3);
+	lua_setmetatable(pState, -2);
 }
 
 void SDE_PackageTool::TraverseTable(lua_State* pState, int nIndex, std::function<bool()> funcCalled)
 {
 	if (!lua_istable(pState, -1))
 	{
-		luaL_error(pState, "The object on the top of the stack isn't table.");
+		luaL_error(pState, "Error occered when traverse a lua's table: The object on the top of the stack isn't table.");
 	}
 	
 	bool bContinue = true;

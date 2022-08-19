@@ -137,8 +137,17 @@ namespace SDE_PackageTool
 		// Get the name of the package.
 		const std::string& GetName() const;
 
+		// Get the sum of function list and enum list sizes.
+		size_t GetSize() const;
+
 		// Get the func list of the package.
 		const LuaFuncRegList& GetFuncRegList() const;
+
+		// Get the enum list of the package.
+		const LuaEnumRegList& GetEnumRegList() const;
+
+		// Get the metatable list of the package.
+		const LuaMetatableRegList& GetMetatableRegList() const;
 
 		// Get the quit function of the package.
 		LuaFunc GetQuitFunc() const;
@@ -171,6 +180,9 @@ namespace SDE_PackageTool
 
 		// Get the size of the package list.
 		size_t GetSize() const;
+		
+		// Get a package by name.
+		const LuaPackage& GetPackage(const std::string& strName) const;
 
 		// Traverse all package in the list and call the function for them.
 		void Traverse(std::function<void(const LuaPackage&)> funcCalled) const;
@@ -201,6 +213,7 @@ namespace SDE_PackageTool
 	void RegisterLuaMetatable(lua_State* pState, const LuaMetatableReg& regMetatable);
 
 	// Register the package's metatable and set the package's data into the table on the top of the stack.
+	// You'd better set only one package for a table, because this function will set a metatable for the table.
 	void SetLuaPackage(lua_State* pState, const LuaPackage& package);
 
 	// Traverse a table and call the function for its elements.
